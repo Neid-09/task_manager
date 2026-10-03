@@ -8,6 +8,11 @@ def test_health():
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
 
+def test_index():
+    response = client.get("/")
+    assert response.status_code == 200
+    assert "Tablero de Tareas" in response.text
+
 def test_get_tasks():
     response = client.get("/api/tasks")
     assert response.status_code == 200

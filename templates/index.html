@@ -1,41 +1,74 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
-	<head>
-		<meta charset="UTF-8" />
-		<title>Gestor de Tareas</title>
-		<style>
-			body {
-				font-family: sans-serif;
-				max-width: 600px;
-				margin: 40px auto;
-			}
-			.task {
-				border: 1px solid #ccc;
-				padding: 10px;
-				margin-bottom: 8px;
-				border-radius: 4px;
-			}
-			.tag-badge {
-				background: #007bff;
-				color: white;
-				padding: 2px 6px;
-				border-radius: 3px;
-				font-size: 12px;
-			}
-		</style>
-	</head>
-	<body>
-		<h1>Tablero de Tareas</h1>
-		<div id="tasks-container"></div>
-		<script>
-			fetch("/api/tasks")
-				.then((res) => res.json())
-				.then((data) => {
-					const container = document.getElementById("tasks-container");
-					container.innerHTML = data
-						.map((t) => `<div class="task"><strong>${t.title}</strong></div>`)
-						.join("");
-				});
-		</script>
-	</body>
+<head>
+    <meta charset="UTF-8">
+    <title>Gestor de Tareas</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 650px; margin: 30px auto; padding: 0 15px; }
+        .user-banner { background: #f0f4f8; padding: 10px; border-radius: 6px; margin-bottom: 20px; font-size: 14px; }
+        .task { border: 1px solid #e1e4e8; padding: 12px; margin-bottom: 10px; border-radius: 6px; }
+        .badge { display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 11px; color: white; margin-right: 5px; }
+        .tag-select-box { margin-top: 8px; font-size: 13px; }
+    </style>
+</head>
+<body>
+    <h1>Tablero de Tareas</h1>
+    
+    <div class="user-banner">
+        <strong>Usuario actual:</strong> {{ user_id }} | 
+        <strong>Feature Flag Etiquetas:</strong> 
+        {% if tags_enabled %}
+            <span style="color: green; font-weight: bold;">ACTIVADO (10% Beta)</span>
+        {% else %}
+            <span style="color: gray;">DESACTIVADO (Grupo de Control 90%)</span>
+        {% endif %}
+    </div>
+    <div id="tasks-container">Cargando tareas...</div>
+    <script>
+        const tagsEnabled = {{ 'true' if tags_enabled else 'false' }};
+        const userId = "{{ user_id }}";
+        async function loadBoard() {
+            const [tasksRes, tagsRes] = await Promise.all([
+                fetch('/api/tasks'),
+                tagsEnabled ? fetch('/api/tags?user_id=' + userId).then(r => r.ok ? r.json() : []) : Promise.resolve([])
+            ]);
+            
+            const tasks = await tasksRes.json();
+            const tags = tagsEnabled ? await tagsRes : [];
+            const container = document.getElementById('tasks-container');
+            container.innerHTML = tasks.map(task => {
+                const tagsHtml = task.tags.map(t => 
+                    `<span class="badge" style="background-color: ${t.color}">${t.name}</span>`
+                ).join('');
+                let assignControls = '';
+                if (tagsEnabled && tags.length > 0) {
+                    const options = tags.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+                    assignControls = `
+                        <div class="tag-select-box">
+                            <select id="select-${task.id}">${options}</select>
+                            <button onclick="assignTag(${task.id})">Asignar Etiqueta</button>
+                        </div>
+                    `;
+                }
+                return `
+                    <div class="task">
+                        <div><strong>${task.title}</strong></div>
+                        <div style="margin-top: 5px;">${tagsHtml}</div>
+                        ${assignControls}
+                    </div>
+                `;
+            }).join('');
+        }
+        async function assignTag(taskId) {
+            const tagId = document.getElementById('select-' + taskId).value;
+            const res = await fetch(`/api/tasks/${taskId}/tags/${tagId}?user_id=${userId}`, { method: 'POST' });
+            if (res.ok) {
+                loadBoard();
+            } else {
+                alert('No tienes permiso o el flag está desactivado');
+            }
+        }
+        loadBoard();
+    </script>
+</body>
 </html>

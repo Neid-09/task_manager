@@ -1,6 +1,7 @@
 import os
 
 import configcatclient
+from configcatclient.user import User
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
@@ -16,7 +17,7 @@ client = configcatclient.get(CONFIGCAT_KEY) if CONFIGCAT_KEY else None
 def is_tags_enabled(user_id: str | None = None) -> bool:
     if not client:
         return False
-    user = configcatclient.User(identifier=user_id) if user_id else None
+    user = User(identifier=user_id) if user_id else None
     return client.get_value("tags_enabled", False, user)
 
 
